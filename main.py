@@ -14,6 +14,7 @@ GITHUB_WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
+
 @app.post("/webhook")
 async def webhook(request : Request):
 
@@ -42,9 +43,9 @@ async def webhook(request : Request):
     else:
         raise HTTPException(status_code=403, detail="invalid signature")
 
-
     repo = data["repository"]["full_name"]
     pr_number = data["pull_request"]["number"]
+
 
     diff = await fetch_pr_diff(repo, pr_number)
     if diff is None:
@@ -75,6 +76,11 @@ async def webhook(request : Request):
             item["comment"]
         )
 
+    if reviews:
+        await add_labels(repo, pr_number, "needs changes")
+    else:
+        await add_labels(repo, pr_number, 'approved')
+        
     return {
         "status" : "received"
     }
@@ -150,4 +156,18 @@ async def post_inline_comment(repo: str, pr_number: int, commit_sha: str, file: 
             print(f"Github API error : {response.status_code}")
             return None
 
+        return response.status_code
+
+async def add_labels(repo: str, pr_number: int, label:str) -> None:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"https://api.github.com/repos/{repo}/issues/{pr_number}/labels",
+            headers= {
+                "Authorization": f"Bearer {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github.v3+json",
+            },
+            json= {
+                "labels": [label]
+            }
+        )
         return response.status_code
