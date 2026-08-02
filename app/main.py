@@ -4,6 +4,14 @@ from app.utils import verify_signature, fetch_pr_diff,get_code_review, post_inli
 
 app = FastAPI()
 
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy"
+    }
+
+
+
 @app.post("/webhook")
 async def webhook(request : Request):
 
@@ -22,7 +30,7 @@ async def webhook(request : Request):
     data = json.loads(payload)
 
     action = data.get("action")
-    if action != "opened":
+    if action not in ["opened", "synchronize", "reopened"]:
         return {
             "status":"ignored"
         }

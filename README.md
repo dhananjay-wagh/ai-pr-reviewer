@@ -1,4 +1,4 @@
-# AI CODE REVIEWER FOR GITHUB
+# AI Code Reviewer for GitHub
 
 A FastAPI-based GitHub webhook service that reviews pull request diffs using Groq, posts inline review comments, and adds labels back to GitHub.
 
@@ -6,12 +6,14 @@ A FastAPI-based GitHub webhook service that reviews pull request diffs using Gro
 
 ## Features
 
-- Receives GitHub pull requests (PR) webhook events
+- Receives GitHub pull request webhook events
 - Verifies webhook signatures
 - Fetches PR diffs from GitHub
 - Sends diffs to Groq for AI review
 - Posts inline comments on changed code
 - Adds labels like `needs changes` or `approved`
+- Supports opened, reopened, and updated pull requests
+- Includes basic tests for webhook signature verification
 
 ## Tech Stack
 
@@ -33,7 +35,7 @@ A FastAPI-based GitHub webhook service that reviews pull request diffs using Gro
 
 ## Environment Variables
 
-create a `.env` file:
+Create a `.env` file:
 
 ```env
 GITHUB_WEBHOOK_SECRET= 
@@ -50,19 +52,25 @@ GROQ_API_KEY=
 5. Set up ngrok and configure GitHub webhook
 6. Set your webhook secret in `.env` to match what you set on GitHub
 
+## Running Tests
+
+```bash
+pytest
+```
+
 ## Current Limitations
 
-- Reviews only newly opened pull requests
 - Basic error handling
-- AI response validation is limited
+- AI response validation is still limited
 - Large diffs are truncated before review
-- No test suite yet
+- No duplicate-comment prevention yet
+- GitHub API failures are logged but not surfaced with detailed responses
 
 ## Planned Improvements
 
 - Add stronger error handling
-- Validate AI review output before posting comments
-- Support pull request update events
-- Add tests
+- Improve AI review output validation
 - Add Docker support
 - Add summary review comments
+- Add duplicate-comment prevention
+- Split utility logic into smaller modules

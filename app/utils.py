@@ -12,6 +12,9 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 def verify_signature(payload : bytes, signature: str) -> bool:
+    if not GITHUB_WEBHOOK_SECRET:
+        return False
+
     secret = GITHUB_WEBHOOK_SECRET.encode()
     expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()  #hexdigest() = This converts those raw bytes into a hexadecimal string.
     return hmac.compare_digest(expected, signature)
@@ -56,7 +59,13 @@ async def get_code_review(diff: str)-> list:
 
     try:
         res = json.loads(response)
-        return res
+        valid_reviews = []
+        for item in res:
+            if isinstance(item.get("file"), str) and item["file"] and isinstance(item.get("line"), int) and item["line"] and isinstance(item.get("comment"), str) and item['comment']:
+                valid_reviews.append(item)
+            else:
+                print(f"Skipping invalid review item : {item}")
+        return valid_reviews
     except json.JSONDecodeError as e:
         print(f"error parsing Groq response : {e}")
         return None
