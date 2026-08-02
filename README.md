@@ -55,7 +55,7 @@ GROQ_API_KEY=
 ## Running Tests
 
 ```bash
-pytest
+pytest tests/
 ```
 
 ## Current Limitations
