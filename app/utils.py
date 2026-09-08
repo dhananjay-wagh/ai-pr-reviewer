@@ -52,7 +52,7 @@ async def get_code_review(diff: str)-> list:
                 "content": diff
             }
         ],
-        model="llama-3.3-70b-versatile",
+        model="qwen3.6-27b",
         temperature=0.7
     )
     response = chat_completions.choices[0].message.content
