@@ -18,7 +18,7 @@ A FastAPI-based GitHub webhook service that reviews pull request diffs using Gro
 ## Tech Stack
 
 - FastAPI + uvicorn
-- Groq API (llama-3.3-70b-versatile)
+- Groq API (openai/gpt-oss-120b or configurable)
 - GitHub REST API
 - httpx
 - Railway (deployment)
@@ -38,9 +38,10 @@ A FastAPI-based GitHub webhook service that reviews pull request diffs using Gro
 Create a `.env` file:
 
 ```env
-GITHUB_WEBHOOK_SECRET= 
-GITHUB_TOKEN= 
+GITHUB_WEBHOOK_SECRET=
+GITHUB_TOKEN=
 GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
 ## Setup
