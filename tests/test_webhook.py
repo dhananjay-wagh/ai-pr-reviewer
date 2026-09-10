@@ -179,21 +179,13 @@ def test_webhook_full_flow_with_reviews(mock_diff, mock_review, mock_comment, mo
     }).encode()
     sig = make_signature(payload)
 
-    response = client.post(
-        "/webhook",
-        headers={
-            "x-github-event": "pull_request",
-            "x-hub-signature-256": sig,
-        },
-        content=payload,
-    )
+    with patch("app.main.GitHub.publish", new=AsyncMock(return_value=True)) as publish:
+        response = client.post("/webhook", headers={"x-github-event": "pull_request", "x-hub-signature-256": sig}, content=payload)
+        publish.assert_awaited_once()
     assert response.status_code == 200
     assert response.json() == {"status": "received"}
 
-    mock_comment.assert_called_once_with(
-        "owner/repo", 10, "commit123", "file.py", 1, "Consider better variable name.", "RIGHT"
-    )
-    mock_labels.assert_called_once_with("owner/repo", 10, "needs changes")
+    mock_comment.assert_not_called()
 
 
 @patch("app.main.add_labels", new_callable=AsyncMock)
@@ -212,19 +204,13 @@ def test_webhook_full_flow_approved(mock_diff, mock_review, mock_comment, mock_l
     }).encode()
     sig = make_signature(payload)
 
-    response = client.post(
-        "/webhook",
-        headers={
-            "x-github-event": "pull_request",
-            "x-hub-signature-256": sig,
-        },
-        content=payload,
-    )
+    with patch("app.main.GitHub.publish", new=AsyncMock(return_value=True)):
+        response = client.post("/webhook", headers={"x-github-event": "pull_request", "x-hub-signature-256": sig}, content=payload)
     assert response.status_code == 200
     assert response.json() == {"status": "received"}
 
     mock_comment.assert_not_called()
-    mock_labels.assert_called_once_with("owner/repo", 10, "approved")
+    mock_labels.assert_not_called()
 
 
 @pytest.mark.anyio

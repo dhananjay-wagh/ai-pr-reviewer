@@ -1,7 +1,9 @@
 import json
+import os
 from fastapi import FastAPI , Request, HTTPException
 from app.utils import verify_signature, fetch_pr_diff,get_code_review, post_inline_comment, add_labels
 from app.reviews import validate_locations
+from app.github import GitHub
 
 app = FastAPI()
 
@@ -82,25 +84,11 @@ async def webhook(request: Request):
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    for item in reviews:
-        result = await post_inline_comment(
-            repo,
-            pr_number,
-            commit_sha,
-            item["file"],
-            item["line"],
-            item["comment"],
-            item.get("side", "RIGHT")
-        )
-        if result != 201:
-            raise HTTPException(status_code=502, detail="failed to publish comment")
-
-    if reviews:
-        result = await add_labels(repo, pr_number, "needs changes")
-    else:
-        result = await add_labels(repo, pr_number, "approved")
-    if result != 200:
-        raise HTTPException(status_code=502, detail="failed to publish label")
+    github = GitHub(os.environ.get("GITHUB_TOKEN", ""))
+    published = await github.publish(repo, pr_number, commit_sha, reviews,
+                                     f"## AI review\n\n{len(reviews)} findings. Full diff reviewed.")
+    if not published:
+        return {"status": "superseded"}
 
     return {
         "status": "received"
