@@ -1,95 +1,95 @@
+import hmac
 import json
 import os
-from fastapi import FastAPI , Request, HTTPException
-from app.utils import verify_signature, fetch_pr_diff,get_code_review, post_inline_comment, add_labels
-from app.reviews import validate_locations
-from app.github import GitHub
 
-app = FastAPI()
+from fastapi import Depends, FastAPI, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from app.store import Store
+from app.utils import verify_signature
+
+app = FastAPI(title="AI Code Reviewer", version="2.0.0")
+
+
+class Head(BaseModel):
+    sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+
+
+class PullRequest(BaseModel):
+    number: int = Field(gt=0, strict=True)
+    head: Head
+
+
+class Repository(BaseModel):
+    full_name: str = Field(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+class Installation(BaseModel):
+    id: int = Field(gt=0, strict=True)
+
+
+class Event(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    action: str
+    repository: Repository
+    pull_request: PullRequest
+    installation: Installation | None = None
+
+
+def store():
+    return Store(os.getenv("DATABASE_PATH", "data/reviewer.db"))
+
+
+def authorize(request: Request):
+    token = os.getenv("DASHBOARD_TOKEN", "")
+    if not token or not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}"):
+        raise HTTPException(401, "Authentication required")
+
 
 @app.get("/")
 @app.get("/health")
-def health():
-    return {
-        "status": "healthy"
-    }
+async def health():
+    return {"status": "healthy"}
 
 
+@app.get("/api/jobs/{job_id}", dependencies=[Depends(authorize)])
+async def job_status(job_id: str):
+    job = store().get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return job
 
-@app.post("/webhook")
+
+@app.post("/webhook", status_code=202)
 async def webhook(request: Request):
-    event = request.headers.get("x-github-event")
-    if event != "pull_request":
-        return {
-            "status": "ignored"
-        }
-
-    payload = await request.body()
+    payload = bytearray()
+    async for chunk in request.stream():
+        payload.extend(chunk)
+        if len(payload) > 1_048_576:
+            raise HTTPException(413, "Webhook payload too large")
     signature = request.headers.get("x-hub-signature-256")
-
     if not signature:
-        raise HTTPException(status_code=403, detail="missing signature")
-
-    if not verify_signature(payload, signature):
-        raise HTTPException(status_code=403, detail="invalid signature")
-
+        raise HTTPException(403, "missing signature")
+    if not verify_signature(bytes(payload), signature):
+        raise HTTPException(403, "invalid signature")
+    if request.headers.get("x-github-event") != "pull_request":
+        return {"status": "ignored"}
     try:
         data = json.loads(payload)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="invalid JSON payload")
-
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "invalid JSON payload")
     if not isinstance(data, dict):
-        raise HTTPException(status_code=400, detail="payload must be an object")
-    action = data.get("action")
-    if action not in ["opened", "synchronize", "reopened"]:
-        return {
-            "status": "ignored"
-        }
-
-    repo = data.get("repository", {}).get("full_name")
-    pr_data = data.get("pull_request", {})
-    pr_number = pr_data.get("number")
-    commit_sha = pr_data.get("head", {}).get("sha")
-
-    if not repo or not pr_number or not commit_sha:
-        return {
-            "status": "missing pull request data"
-        }
-
-    diff = await fetch_pr_diff(repo, pr_number)
-    if diff is None:
-        print("Failed to retrieve the Diff from Github API")
-        return {
-            "status": "failed to retrieve diff"
-        }
-    if not diff:
-        print("No change")
-        return {
-            "status": "no diff"
-        }
-
-    if len(diff) > 8000:
-        raise HTTPException(status_code=422, detail="diff exceeds review limit; no approval issued")
-
-    reviews = await get_code_review(diff)
-
-    if reviews is None:
-        print("Skipping -- Groq response was invalid")
-        return {
-            "status": "error parsing review"
-        }
-
+        raise HTTPException(400, "payload must be an object")
+    if data.get("action") not in ("opened", "reopened", "synchronize"):
+        return {"status": "ignored"}
     try:
-        validate_locations(reviews, diff)
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
-
-    github = GitHub(os.environ.get("GITHUB_TOKEN", ""))
-    published = await github.publish(repo, pr_number, commit_sha, reviews,
-                                     f"## AI review\n\n{len(reviews)} findings. Full diff reviewed.")
-    if not published:
-        return {"status": "superseded"}
-
-    return {
-        "status": "received"
-    }
+        event = Event.model_validate(data)
+    except ValidationError:
+        raise HTTPException(422, "Invalid pull request payload")
+    delivery = request.headers.get("x-github-delivery", "")
+    if not delivery or len(delivery) > 200:
+        raise HTTPException(400, "Missing or invalid delivery ID")
+    job_id, created = store().enqueue(delivery, event.repository.full_name,
+                                    event.pull_request.number, event.pull_request.head.sha,
+                                    event.installation.id if event.installation else None)
+    return {"status": "queued" if created else "duplicate", "job_id": job_id}
