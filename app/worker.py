@@ -8,6 +8,7 @@ import time
 import httpx
 
 from app.github import GitHub, GitHubError
+from app.auth import github_for_job
 from app.reviews import validate_locations
 from app.store import Store
 from app.utils import get_code_review
@@ -16,7 +17,7 @@ log = logging.getLogger("reviewer.worker")
 
 
 async def review_job(job):
-    github = GitHub(os.environ["GITHUB_TOKEN"])
+    github = await github_for_job(job)
     if await github.head(job["repo"], job["number"]) != job["sha"]:
         return "superseded", {}
     diff = await github.diff(job["repo"], job["number"])

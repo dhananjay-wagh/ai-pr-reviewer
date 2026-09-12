@@ -86,6 +86,11 @@ async def webhook(request: Request):
         event = Event.model_validate(data)
     except ValidationError:
         raise HTTPException(422, "Invalid pull request payload")
+    if os.getenv("GITHUB_APP_ID") and not event.installation:
+        raise HTTPException(422, "GitHub App event requires installation")
+    allowed = {repo.strip().lower() for repo in os.getenv("ALLOWED_REPOSITORIES", "").split(",") if repo.strip()}
+    if allowed and event.repository.full_name.lower() not in allowed:
+        raise HTTPException(403, "Repository is not enabled")
     delivery = request.headers.get("x-github-delivery", "")
     if not delivery or len(delivery) > 200:
         raise HTTPException(400, "Missing or invalid delivery ID")

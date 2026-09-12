@@ -15,9 +15,10 @@ class GitHubError(RuntimeError):
 
 
 class GitHub:
-    def __init__(self, token: str, client: httpx.AsyncClient | None = None):
+    def __init__(self, token: str, client: httpx.AsyncClient | None = None, bot_login: str | None = None):
         self.token = token
         self.client = client
+        self.bot_login = bot_login
 
     async def request(self, method: str, path: str, **kwargs):
         async with httpx.AsyncClient(base_url="https://api.github.com", timeout=20) as default:
@@ -76,6 +77,8 @@ class GitHub:
         return "\n".join(chunks)
 
     async def actor(self) -> str:
+        if self.bot_login:
+            return self.bot_login
         if os.getenv("GITHUB_BOT_LOGIN"):
             return os.environ["GITHUB_BOT_LOGIN"]
         return (await self.request("GET", "/user"))["login"]
