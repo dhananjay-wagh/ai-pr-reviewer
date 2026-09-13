@@ -7,29 +7,23 @@ import time
 
 import httpx
 
-from app.github import GitHub, GitHubError
+from app.github import GitHubError
 from app.auth import github_for_job
-from app.reviews import validate_locations
+from app.engine import analyze, summary
+from app.model import ModelError
 from app.store import Store
-from app.utils import get_code_review
 
 log = logging.getLogger("reviewer.worker")
 
 
 async def review_job(job):
     github = await github_for_job(job)
-    if await github.head(job["repo"], job["number"]) != job["sha"]:
+    result = await analyze(github, job["repo"], job["number"], job["sha"])
+    if result is None:
         return "superseded", {}
-    diff = await github.diff(job["repo"], job["number"])
-    if len(diff) > 8000:
-        raise ValueError("Diff exceeds review limit; no approval issued")
-    findings = await get_code_review(diff) if diff else []
-    if findings is None:
-        raise ValueError("Model review failed validation or generation")
-    validate_locations(findings, diff)
-    summary = f"## AI review\n\n{len(findings)} findings. Full diff reviewed."
-    published = await github.publish(job["repo"], job["number"], job["sha"], findings, summary)
-    return ("completed" if published else "superseded"), {"findings": findings}
+    published = await github.publish(job["repo"], job["number"], job["sha"], result["findings"],
+                                     summary(result), complete=result["complete"])
+    return ("completed" if published else "superseded"), result
 
 
 async def run_once(db: Store):
@@ -55,7 +49,7 @@ async def run_once(db: Store):
         db.finish(job, status, result=result)
         log.info("job_finished id=%s status=%s duration=%.3f", job["id"], status, time.monotonic()-started)
     except Exception as exc:
-        retry = isinstance(exc, (httpx.TransportError, TimeoutError)) or isinstance(exc, GitHubError) and exc.retryable
+        retry = isinstance(exc, (httpx.TransportError, TimeoutError)) or isinstance(exc, (GitHubError, ModelError)) and exc.retryable
         db.finish(job, "failed", error=type(exc).__name__, retry=retry)
         log.warning("job_failed id=%s error=%s retry=%s", job["id"], type(exc).__name__, retry)
     finally:

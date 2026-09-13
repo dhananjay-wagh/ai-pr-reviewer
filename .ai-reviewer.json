@@ -1,0 +1,8 @@
+{
+  "ignore": ["*.lock", "vendor/*", "dist/*", "assets/*"],
+  "min_severity": "medium",
+  "categories": ["bug", "security", "performance"],
+  "max_files": 20,
+  "max_file_chars": 12000,
+  "max_total_chars": 60000
+}

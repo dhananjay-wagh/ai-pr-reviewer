@@ -83,7 +83,7 @@ class GitHub:
             return os.environ["GITHUB_BOT_LOGIN"]
         return (await self.request("GET", "/user"))["login"]
 
-    async def publish(self, repo: str, number: int, sha: str, findings: list[dict], summary: str):
+    async def publish(self, repo: str, number: int, sha: str, findings: list[dict], summary: str, complete: bool = True):
         if await self.head(repo, number) != sha:
             return False
         actor = await self.actor()
@@ -114,8 +114,7 @@ class GitHub:
             await self.request("POST", f"{base}/issues/{number}/comments", json={"body": body})
         if await self.head(repo, number) != sha:
             return False
-        label = "ai:findings" if findings else "ai:clear"
-        opposite = "ai:clear" if findings else "ai:findings"
+        label = "ai:partial" if not complete else "ai:findings" if findings else "ai:clear"
         labels = await self.pages(f"{base}/labels")
         if not any(item["name"] == label for item in labels):
             try:
@@ -124,7 +123,8 @@ class GitHub:
                 if exc.status != 422:  # another worker may have created it
                     raise
         current = await self.pages(f"{base}/issues/{number}/labels")
-        if any(item["name"] == opposite for item in current):
-            await self.request("DELETE", f"{base}/issues/{number}/labels/{opposite}")
+        for opposite in {"ai:clear", "ai:findings", "ai:partial"} - {label}:
+            if any(item["name"] == opposite for item in current):
+                await self.request("DELETE", f"{base}/issues/{number}/labels/{opposite}")
         await self.request("POST", f"{base}/issues/{number}/labels", json={"labels": [label]})
         return True
