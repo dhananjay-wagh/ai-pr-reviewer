@@ -74,14 +74,14 @@ class Store:
             return db.execute("UPDATE jobs SET lease_until=? WHERE id=? AND owner=? AND status='running'",
                               (time.time()+120, job["id"], job["owner"])).rowcount == 1
 
-    def finish(self, job, status, result=None, error=None, retry=False):
+    def finish(self, job, status, result=None, error=None, retry=False, retry_delay=0):
         now = time.time()
         if retry and job["attempts"] < 3:
             status = "queued"
         with self.connect() as db:
             db.execute("UPDATE jobs SET status=?, result=?, error=?, updated=?, available=?, lease_until=0 WHERE id=? AND owner=? AND status='running'",
                        (status, json.dumps(result) if result is not None else None, error, now,
-                        now + 2 ** job["attempts"], job["id"], job["owner"]))
+                        now + max(retry_delay, 2 ** job["attempts"]), job["id"], job["owner"]))
 
     def get(self, job_id):
         with self.connect() as db:

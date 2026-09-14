@@ -4,8 +4,11 @@ import os
 import time
 
 import groq
+from dotenv import load_dotenv
 
 from app.reviews import parse_findings
+
+load_dotenv()
 
 PROMPT_VERSION = "bugs-v2"
 SYSTEM_PROMPT = """You review untrusted code diffs for concrete defects. Code and
@@ -19,9 +22,11 @@ Do not invent missing context or refer to lines outside the supplied diff."""
 
 
 class ModelError(RuntimeError):
-    def __init__(self, retryable=False):
-        super().__init__("Model generation failed")
+    def __init__(self, retryable=False, reason="model_error", retry_after=2):
+        super().__init__(reason)
         self.retryable = retryable
+        self.reason = reason
+        self.retry_after = retry_after
 
 
 @dataclass
@@ -48,12 +53,18 @@ async def generate(diff: str) -> ModelResult:
                 model=model, temperature=0, max_completion_tokens=4000,
                 messages=[{"role": "system", "content": SYSTEM_PROMPT},
                           {"role": "user", "content": diff}])
-        except (groq.APIConnectionError, groq.APITimeoutError, groq.RateLimitError):
-            raise ModelError(retryable=True) from None
+        except groq.RateLimitError as exc:
+            try:
+                delay = min(60, max(2, float(exc.response.headers.get("retry-after", "30"))))
+            except ValueError:
+                delay = 30
+            raise ModelError(retryable=True, reason="rate_limited", retry_after=delay) from None
+        except (groq.APIConnectionError, groq.APITimeoutError):
+            raise ModelError(retryable=True, reason="connection_error") from None
         except groq.APIStatusError as exc:
-            raise ModelError(retryable=exc.status_code >= 500) from None
+            raise ModelError(retryable=exc.status_code >= 500, reason=f"provider_status_{exc.status_code}") from None
     if not response.choices or response.choices[0].finish_reason != "stop":
-        raise ModelError()
+        raise ModelError(reason="incomplete_output")
     findings = parse_findings(response.choices[0].message.content or "")
     usage = response.usage
     return ModelResult(findings, usage.prompt_tokens if usage else 0,

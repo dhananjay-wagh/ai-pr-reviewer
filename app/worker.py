@@ -50,7 +50,8 @@ async def run_once(db: Store):
         log.info("job_finished id=%s status=%s duration=%.3f", job["id"], status, time.monotonic()-started)
     except Exception as exc:
         retry = isinstance(exc, (httpx.TransportError, TimeoutError)) or isinstance(exc, (GitHubError, ModelError)) and exc.retryable
-        db.finish(job, "failed", error=type(exc).__name__, retry=retry)
+        category = exc.reason if isinstance(exc, ModelError) else type(exc).__name__
+        db.finish(job, "failed", error=category, retry=retry, retry_delay=getattr(exc, "retry_after", 0))
         log.warning("job_failed id=%s error=%s retry=%s", job["id"], type(exc).__name__, retry)
     finally:
         task.cancel()

@@ -1,0 +1,1007 @@
+{
+  "mode": "live",
+  "created_at": "2026-11-17T19:24:26.784397+00:00",
+  "cases": 30,
+  "location_category_precision": 0.5517241379310345,
+  "location_category_recall": 0.8,
+  "failed_cases": 0,
+  "invalid_location_findings": 0,
+  "total_findings": 29,
+  "median_latency_seconds": 1.85,
+  "prompt_tokens": 7722,
+  "completion_tokens": 8064,
+  "results": [
+    {
+      "id": "division-zero",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def average(xs):\n+    return sum(xs) / len(xs)\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "An empty list divides by zero.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "Division by zero occurs when `xs` is empty, causing a ZeroDivisionError at runtime. Add a guard to handle empty sequences before performing the division."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 249,
+      "completion_tokens": 225,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.44
+    },
+    {
+      "id": "mutable-default",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,3 @@\n+def collect(x, items=[]):\n+    items.append(x)\n+    return items\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            1,
+            2
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "Calls share a mutable default list.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 1,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "Uses a mutable default argument (items=[]). The list is shared across all calls, causing unintended accumulation of values and incorrect results."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 253,
+      "completion_tokens": 209,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.201
+    },
+    {
+      "id": "sql-interpolation",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def lookup(db, name):\n+    return db.execute(\"SELECT * FROM users WHERE name='\" + name + \"'\")\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Untrusted names can inject SQL.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "The function builds an SQL query by concatenating the unescaped `name` parameter directly into the query string, enabling SQL injection. An attacker can supply a crafted name to execute arbitrary SQL commands, leading to data leakage, modification, or loss."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 259,
+      "completion_tokens": 246,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.364
+    },
+    {
+      "id": "shell-injection",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,3 @@\n+import os\n+def lookup(host):\n+    os.system('ping ' + host)\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            3
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Shell metacharacters in host execute commands.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "The function passes the raw `host` argument to `os.system('ping ' + host)`. This allows command injection: a malicious host string like `example.com; rm -rf /` would execute arbitrary commands. Use a safe API (e.g., subprocess.run with a list) and validate/escape the input."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 253,
+      "completion_tokens": 292,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.95
+    },
+    {
+      "id": "unsafe-pickle",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,3 @@\n+import pickle\n+def parse(untrusted_bytes):\n+    return pickle.loads(untrusted_bytes)\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            3
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Untrusted pickle can execute code.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "The function `parse` uses `pickle.loads` on data supplied by an untrusted caller. `pickle.loads` can execute arbitrary code during deserialization, leading to remote code execution vulnerabilities. Replace with a safe parser (e.g., `json.loads`) or validate/sanitize input before deserialization."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 254,
+      "completion_tokens": 272,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.78
+    },
+    {
+      "id": "unsafe-eval",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def calculate(user_expression):\n+    return eval(user_expression)\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Arbitrary Python expressions can execute code.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "critical",
+          "category": "security",
+          "comment": "The function directly calls eval on a user-provided string, enabling arbitrary code execution. An attacker can supply malicious Python code, leading to remote code execution, data theft, or system compromise."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 247,
+      "completion_tokens": 236,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.595
+    },
+    {
+      "id": "tls-disabled",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,3 @@\n+import requests\n+def download(url):\n+    return requests.get(url, verify=False, timeout=10)\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            3
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Disables server certificate verification.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "The function calls requests.get with verify=False, which disables SSL certificate verification and exposes the download to man\u2011in\u2011the\u2011middle attacks. This is a critical security flaw; the code should verify certificates or make verification configurable."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 257,
+      "completion_tokens": 283,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.864
+    },
+    {
+      "id": "off-by-one",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def last(xs):\n+    return xs[len(xs)]\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "The largest valid index is len(xs)-1.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "The function returns xs[len(xs)], which is an out\u2011of\u2011range index (valid indices are 0..len(xs)-1). This will raise IndexError for any non\u2011empty list, making the function unusable. It should use xs[-1] or xs[len(xs)-1] to return the last element."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 246,
+      "completion_tokens": 360,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 2.025
+    },
+    {
+      "id": "identity-string",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def is_admin(role):\n+    return role is 'admin'\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "Object identity is not string equality.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "Uses the identity operator `is` to compare a string role to the literal `'admin'`. This checks object identity, not value equality, so non\u2011interned strings (e.g., user\u2011supplied input) will not match and the admin check can be bypassed, leading to privilege escalation."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 1
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 248,
+      "completion_tokens": 244,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.665
+    },
+    {
+      "id": "swallowed-return",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,5 @@\n+def divide(a, b):\n+    try:\n+        return a / b\n+    finally:\n+        return 0\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            5
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "Finally return overrides the result and exceptions.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 5,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "The `finally` block unconditionally returns 0, overriding the result of `a / b` and suppressing any exception (e.g., ZeroDivisionError). This makes the function always return 0 and hides errors, causing incorrect behavior."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 262,
+      "completion_tokens": 336,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.75
+    },
+    {
+      "id": "missing-await",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,3 @@\n+async def load(db):\n+    result = db.fetch_one('SELECT 1')\n+    return result['value']\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2,
+            3
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "An async fetch is used as a mapping without awaiting.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "The async function calls `db.fetch_one` without `await`. If `fetch_one` returns an awaitable (common for async DB APIs), the coroutine will not be executed, resulting in `result` being a coroutine object and likely causing a TypeError or incorrect data handling. Add `await` before the call."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 259,
+      "completion_tokens": 334,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.924
+    },
+    {
+      "id": "blocking-async",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,4 @@\n+import time\n+async def handler():\n+    time.sleep(5)\n+    return 'ok'\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            3
+          ],
+          "category": "performance"
+        }
+      ],
+      "rationale": "Blocks the event loop for five seconds.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "Calling time.sleep(5) inside an async function blocks the event loop, causing all other async tasks to stall for 5 seconds. Use await asyncio.sleep(5) instead."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 1
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 256,
+      "completion_tokens": 253,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.7
+    },
+    {
+      "id": "repeated-query",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def names(db, user_ids):\n+    return [db.execute('SELECT name FROM users WHERE id=?', (i,)).fetchone()[0] for i in user_ids]\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "performance"
+        }
+      ],
+      "rationale": "Issues a separate database query for each ID.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "If a user_id does not exist, db.execute(...).fetchone() returns None, and indexing [0] will raise a TypeError/IndexError, causing the function to fail for missing IDs."
+        },
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "performance",
+          "comment": "The list comprehension issues a separate SQL query for each user_id (N+1 queries), which is inefficient for large input lists; a single query with IN clause would be much faster."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 1,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 272,
+      "completion_tokens": 399,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 2.18
+    },
+    {
+      "id": "quadratic-membership",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def intersection(a, b):\n+    return [x for x in a if x in b]  # a and b are large lists\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "performance"
+        }
+      ],
+      "rationale": "Repeated list membership gives quadratic work.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "performance",
+          "comment": "The list comprehension checks `x in b` where `b` is a list, resulting in O(n*m) time for large inputs. This can cause severe slowdown. Convert `b` to a set (e.g., `b_set = set(b)`) and test membership against the set, or use set intersection for optimal O(n+m) performance."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 264,
+      "completion_tokens": 327,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.836
+    },
+    {
+      "id": "dict-mutation",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,4 @@\n+def prune(items):\n+    for key in items:\n+        if items[key] is None:\n+            del items[key]\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2,
+            4
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "Dictionary size changes during iteration.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "Deleting keys from a dict while iterating over it (for key in items) raises RuntimeError: dictionary changed size during iteration, causing the function to crash for any dict containing None values."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 1
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 261,
+      "completion_tokens": 246,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.802
+    },
+    {
+      "id": "list-sort-return",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def ordered(xs):\n+    return xs.sort()\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            2
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "list.sort returns None rather than the sorted list.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "The function returns the result of xs.sort(), but list.sort() sorts in place and returns None. Callers expecting a sorted list will receive None, leading to runtime errors or incorrect behavior."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 245,
+      "completion_tokens": 253,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.619
+    },
+    {
+      "id": "missing-transaction",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,5 @@\n+def transfer(db, sender, receiver, amount):\n+    db.execute('UPDATE accounts SET balance=balance-? WHERE id=?', (amount, sender))\n+    db.commit()\n+    db.execute('UPDATE accounts SET balance=balance+? WHERE id=?', (amount, receiver))\n+    db.commit()\n",
+      "expected": [
+        {
+          "file": "example.py",
+          "lines": [
+            3,
+            4,
+            5
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "A failure after the first commit loses funds.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "The transfer updates the sender and receiver balances in two separate statements with intermediate commits, so the operation is not atomic. If the second UPDATE fails after the first commit, money can be lost or created, breaking consistency."
+        },
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "No validation is performed to ensure the sender has sufficient funds before debiting, allowing overdrafts and potential financial errors."
+        },
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "low",
+          "category": "performance",
+          "comment": "Calling db.commit() after each UPDATE incurs unnecessary round\u2011trips to the database; a single commit after both updates would be more efficient."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 3,
+        "fn": 1
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 299,
+      "completion_tokens": 472,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 2.169
+    },
+    {
+      "id": "javascript-assignment",
+      "diff": "diff --git a/example.js b/example.js\n--- /dev/null\n+++ b/example.js\n@@ -0,0 +1,4 @@\n+function isAdmin(user) {\n+  if (user.role = 'admin') return true;\n+  return false;\n+}\n",
+      "expected": [
+        {
+          "file": "example.js",
+          "lines": [
+            2
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Assignment grants every user the admin role.",
+      "findings": [
+        {
+          "file": "example.js",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "Uses assignment operator (=) instead of equality check. This overwrites user.role to 'admin' and always returns true, granting admin privileges to any user. Leads to a critical security breach."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 261,
+      "completion_tokens": 231,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.75
+    },
+    {
+      "id": "javascript-xss",
+      "diff": "diff --git a/example.js b/example.js\n--- /dev/null\n+++ b/example.js\n@@ -0,0 +1,3 @@\n+function showName(element, userInput) {\n+  element.innerHTML = userInput;\n+}\n",
+      "expected": [
+        {
+          "file": "example.js",
+          "lines": [
+            2
+          ],
+          "category": "security"
+        }
+      ],
+      "rationale": "Untrusted HTML enables script injection.",
+      "findings": [
+        {
+          "file": "example.js",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "security",
+          "comment": "Directly assigning userInput to element.innerHTML enables XSS. Supplying a malicious string such as \"<img src=x onerror=alert(1)>\" will execute arbitrary JavaScript in the page, compromising user data and site integrity."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 255,
+      "completion_tokens": 258,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 4.36
+    },
+    {
+      "id": "javascript-map-return",
+      "diff": "diff --git a/example.js b/example.js\n--- /dev/null\n+++ b/example.js\n@@ -0,0 +1,3 @@\n+function doubled(items) {\n+  return items.map(x => { x * 2; });\n+}\n",
+      "expected": [
+        {
+          "file": "example.js",
+          "lines": [
+            2
+          ],
+          "category": "bug"
+        }
+      ],
+      "rationale": "The callback returns undefined for every item.",
+      "findings": [
+        {
+          "file": "example.js",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "The arrow function passed to `map` uses a block body without an explicit `return`, so it returns `undefined` for each element. The function should return the computed value, e.g., `items.map(x => x * 2)` or `items.map(x => { return x * 2; })`. This causes `doubled` to produce an array of `undefined` instead of the expected doubled numbers."
+        }
+      ],
+      "score": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 256,
+      "completion_tokens": 323,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.916
+    },
+    {
+      "id": "clean-empty-average",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,4 @@\n+def average(xs):\n+    if not xs:\n+        return None\n+    return sum(xs) / len(xs)\n",
+      "expected": [],
+      "rationale": "Empty input is handled explicitly.",
+      "findings": [],
+      "score": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 260,
+      "completion_tokens": 138,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 5.389
+    },
+    {
+      "id": "clean-fresh-list",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,5 @@\n+def collect(x, items=None):\n+    if items is None:\n+        items = []\n+    items.append(x)\n+    return items\n",
+      "expected": [],
+      "rationale": "Each omitted argument gets its own list.",
+      "findings": [],
+      "score": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 265,
+      "completion_tokens": 135,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.464
+    },
+    {
+      "id": "clean-parameterized-sql",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def lookup(db, name):\n+    return db.execute('SELECT * FROM users WHERE name=?', (name,))\n",
+      "expected": [],
+      "rationale": "The query binds user input as a parameter.",
+      "findings": [],
+      "score": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 258,
+      "completion_tokens": 103,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.269
+    },
+    {
+      "id": "clean-subprocess",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,3 @@\n+import subprocess\n+def lookup(host):\n+    return subprocess.run(['ping', '--', host], check=True, timeout=10)\n",
+      "expected": [],
+      "rationale": "Arguments are passed without invoking a shell.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "security",
+          "comment": "The function passes an unvalidated `host` argument directly to `subprocess.run`. Although the command is built as a list (preventing shell injection), an attacker could supply a malicious hostname that triggers DNS lookups, large ping floods, or other network\u2011based denial\u2011of\u2011service attacks (e.g., SSRF). Validate or sanitize the host before invoking `ping`."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 262,
+      "completion_tokens": 454,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 5.918
+    },
+    {
+      "id": "clean-json",
+      "diff": "diff --git a/example.js b/example.js\n--- /dev/null\n+++ b/example.js\n@@ -0,0 +1,3 @@\n+import json\n+def parse(data):\n+    return json.loads(data)\n",
+      "expected": [],
+      "rationale": "Parses JSON without executing Python code.",
+      "findings": [
+        {
+          "file": "example.js",
+          "line": 1,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "The line uses Python's `import json` syntax in a JavaScript file, causing a syntax error at load time."
+        },
+        {
+          "file": "example.js",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "The function definition `def parse(data):` is Python syntax, not valid JavaScript, leading to a parsing failure."
+        },
+        {
+          "file": "example.js",
+          "line": 3,
+          "side": "RIGHT",
+          "severity": "high",
+          "category": "bug",
+          "comment": "The call to `json.loads(data)` relies on Python's `json` module API, which does not exist in JavaScript, resulting in a runtime error if the code were somehow executed."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 3,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 250,
+      "completion_tokens": 375,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 4.855
+    },
+    {
+      "id": "clean-sorted",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def ordered(xs):\n+    return sorted(xs)\n",
+      "expected": [],
+      "rationale": "Returns a sorted copy.",
+      "findings": [],
+      "score": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 245,
+      "completion_tokens": 87,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 4.103
+    },
+    {
+      "id": "clean-copy-mutation",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,2 @@\n+def prune(items):\n+    return {k: v for k, v in items.items() if v is not None}\n",
+      "expected": [],
+      "rationale": "Builds a separate dictionary.",
+      "findings": [
+        {
+          "file": "example.py",
+          "line": 2,
+          "side": "RIGHT",
+          "severity": "medium",
+          "category": "bug",
+          "comment": "The function assumes `items` has an `.items()` method (i.e., is a dict). If a non\u2011dict iterable (e.g., list of tuples) is passed, an AttributeError will be raised, causing a runtime failure. Input validation or support for generic mappings should be added."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 260,
+      "completion_tokens": 340,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.88
+    },
+    {
+      "id": "clean-async-sleep",
+      "diff": "diff --git a/example.py b/example.py\n--- /dev/null\n+++ b/example.py\n@@ -0,0 +1,4 @@\n+import asyncio\n+async def handler():\n+    await asyncio.sleep(5)\n+    return 'ok'\n",
+      "expected": [],
+      "rationale": "Yields control during the delay.",
+      "findings": [],
+      "score": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 257,
+      "completion_tokens": 144,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 5.325
+    },
+    {
+      "id": "clean-js-text",
+      "diff": "diff --git a/example.js b/example.js\n--- /dev/null\n+++ b/example.js\n@@ -0,0 +1,3 @@\n+function showName(element, userInput) {\n+  element.textContent = userInput;\n+}\n",
+      "expected": [],
+      "rationale": "Renders input as text rather than HTML.",
+      "findings": [
+        {
+          "file": "example.js",
+          "line": 1,
+          "side": "RIGHT",
+          "severity": "low",
+          "category": "bug",
+          "comment": "The function assumes `element` is a non\u2011null DOM node. If `element` is `null` or `undefined`, accessing `element.textContent` will throw a TypeError and crash the script."
+        }
+      ],
+      "score": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 255,
+      "completion_tokens": 360,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 4.842
+    },
+    {
+      "id": "clean-js-map",
+      "diff": "diff --git a/example.js b/example.js\n--- /dev/null\n+++ b/example.js\n@@ -0,0 +1,3 @@\n+function doubled(items) {\n+  return items.map(x => x * 2);\n+}\n",
+      "expected": [],
+      "rationale": "Expression callback returns each doubled value.",
+      "findings": [],
+      "score": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "error": null,
+      "invalid_locations": 0,
+      "prompt_tokens": 254,
+      "completion_tokens": 129,
+      "model": "openai/gpt-oss-120b",
+      "prompt_version": "bugs-v2",
+      "duration_seconds": 1.556
+    }
+  ],
+  "dataset_sha256": "ed143f4420d5e82674b5c05a45149ebf4228605017f2f2f3e89390ccb1e115a7"
+}

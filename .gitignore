@@ -9,3 +9,4 @@ data/
 *.db-wal
 *.pem
 *.key
+reports/
