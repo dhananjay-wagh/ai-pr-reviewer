@@ -1,14 +1,30 @@
 import hmac
 import json
 import os
+from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.store import Store
 from app.utils import verify_signature
 
 app = FastAPI(title="AI Code Reviewer", version="2.0.0")
+STATIC = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    if request.url.path.startswith(("/api/", "/dashboard")):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+    return response
 
 
 class Head(BaseModel):
@@ -42,7 +58,7 @@ def store():
 
 def authorize(request: Request):
     token = os.getenv("DASHBOARD_TOKEN", "")
-    if not token or not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}"):
+    if not token or not hmac.compare_digest(request.headers.get("authorization", "").encode(), f"Bearer {token}".encode()):
         raise HTTPException(401, "Authentication required")
 
 
@@ -50,6 +66,21 @@ def authorize(request: Request):
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard():
+    return FileResponse(STATIC / "index.html")
+
+
+@app.get("/api/jobs", dependencies=[Depends(authorize)])
+async def jobs(limit: int = Query(50, ge=1, le=100), before: float | None = None):
+    return {"jobs": store().recent(limit, before)}
+
+
+@app.get("/api/metrics", dependencies=[Depends(authorize)])
+async def metrics():
+    return store().metrics()
 
 
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(authorize)])

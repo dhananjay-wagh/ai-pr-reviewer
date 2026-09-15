@@ -88,6 +88,25 @@ class Store:
             row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
             return self.public(row) if row else None
 
+    def recent(self, limit=50, before=None):
+        with self.connect() as db:
+            rows = db.execute("SELECT * FROM jobs WHERE (? IS NULL OR created<?) ORDER BY created DESC,id DESC LIMIT ?",
+                              (before, before, limit)).fetchall()
+            return [self.public(row) for row in rows]
+
+    def metrics(self):
+        with self.connect() as db:
+            counts = {row["status"]: row["n"] for row in db.execute("SELECT status,COUNT(*) AS n FROM jobs GROUP BY status")}
+            rows = db.execute("SELECT result FROM jobs WHERE status='completed' AND result IS NOT NULL ORDER BY updated DESC LIMIT 100").fetchall()
+        results = [json.loads(row["result"]) for row in rows]
+        import statistics
+        durations = [r["duration_seconds"] for r in results if "duration_seconds" in r]
+        return {"jobs_by_status": counts, "sample_size": len(results),
+                "median_review_seconds": statistics.median(durations) if durations else None,
+                "prompt_tokens": sum(r.get("prompt_tokens", 0) for r in results),
+                "completion_tokens": sum(r.get("completion_tokens", 0) for r in results),
+                "partial_reviews": sum(not r.get("complete", True) for r in results)}
+
     @staticmethod
     def public(row):
         value = dict(row)
