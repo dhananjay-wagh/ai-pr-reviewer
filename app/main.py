@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -23,7 +23,9 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     if request.url.path.startswith(("/api/", "/dashboard")):
         response.headers["Cache-Control"] = "no-store"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+        )
     return response
 
 
@@ -58,7 +60,9 @@ def store():
 
 def authorize(request: Request):
     token = os.getenv("DASHBOARD_TOKEN", "")
-    if not token or not hmac.compare_digest(request.headers.get("authorization", "").encode(), f"Bearer {token}".encode()):
+    if not token or not hmac.compare_digest(
+        request.headers.get("authorization", "").encode(), f"Bearer {token}".encode()
+    ):
         raise HTTPException(401, "Authentication required")
 
 
@@ -119,13 +123,21 @@ async def webhook(request: Request):
         raise HTTPException(422, "Invalid pull request payload")
     if os.getenv("GITHUB_APP_ID") and not event.installation:
         raise HTTPException(422, "GitHub App event requires installation")
-    allowed = {repo.strip().lower() for repo in os.getenv("ALLOWED_REPOSITORIES", "").split(",") if repo.strip()}
+    allowed = {
+        repo.strip().lower()
+        for repo in os.getenv("ALLOWED_REPOSITORIES", "").split(",")
+        if repo.strip()
+    }
     if allowed and event.repository.full_name.lower() not in allowed:
         raise HTTPException(403, "Repository is not enabled")
     delivery = request.headers.get("x-github-delivery", "")
     if not delivery or len(delivery) > 200:
         raise HTTPException(400, "Missing or invalid delivery ID")
-    job_id, created = store().enqueue(delivery, event.repository.full_name,
-                                    event.pull_request.number, event.pull_request.head.sha,
-                                    event.installation.id if event.installation else None)
+    job_id, created = store().enqueue(
+        delivery,
+        event.repository.full_name,
+        event.pull_request.number,
+        event.pull_request.head.sha,
+        event.installation.id if event.installation else None,
+    )
     return {"status": "queued" if created else "duplicate", "job_id": job_id}

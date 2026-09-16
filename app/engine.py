@@ -1,4 +1,5 @@
 """Review whole file patches within a bounded, explicitly reported scope."""
+
 from app.config import load_config
 from app.model import generate
 from app.reviews import validate_locations
@@ -10,9 +11,17 @@ async def analyze(github, repo, number, sha):
         return None
     config = await load_config(github, repo, pr["base"]["sha"])
     files = await github.pages(f"/repos/{repo}/pulls/{number}/files")
-    result = {"findings": [], "reviewed_files": [], "ignored_files": [], "skipped_files": [],
-              "prompt_tokens": 0, "completion_tokens": 0, "model_calls": 0,
-              "config": config.model_dump(), "complete": pr["changed_files"] == len(files)}
+    result = {
+        "findings": [],
+        "reviewed_files": [],
+        "ignored_files": [],
+        "skipped_files": [],
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "model_calls": 0,
+        "config": config.model_dump(),
+        "complete": pr["changed_files"] == len(files),
+    }
     used = 0
     for file in files:
         path = file["filename"]
@@ -30,7 +39,10 @@ async def analyze(github, repo, number, sha):
             reason = "size budget"
         elif len(result["reviewed_files"]) >= config.max_files:
             reason = "file budget"
-        elif sum(line.startswith("+") for line in patch.splitlines()) != file["additions"] or sum(line.startswith("-") for line in patch.splitlines()) != file["deletions"]:
+        elif (
+            sum(line.startswith("+") for line in patch.splitlines()) != file["additions"]
+            or sum(line.startswith("-") for line in patch.splitlines()) != file["deletions"]
+        ):
             reason = "incomplete patch"
         if reason:
             result["skipped_files"].append({"file": path, "reason": reason})
@@ -53,10 +65,16 @@ async def analyze(github, repo, number, sha):
 
 
 def summary(result):
-    scope = "Complete within configured scope" if result["complete"] else "Partial review — unreviewed changes remain"
-    return (f"## AI review\n\n**{scope}**\n\n"
-            f"Findings: {len(result['findings'])} · Files reviewed: {len(result['reviewed_files'])} · "
-            f"Ignored by policy: {len(result['ignored_files'])} · Skipped: {len(result['skipped_files'])}\n\n"
-            f"Minimum severity: {result['config']['min_severity']}. "
-            f"Categories: {', '.join(result['config']['categories'])}.\n\n"
-            "This review does not constitute approval or a security audit.")
+    scope = (
+        "Complete within configured scope"
+        if result["complete"]
+        else "Partial review — unreviewed changes remain"
+    )
+    return (
+        f"## AI review\n\n**{scope}**\n\n"
+        f"Findings: {len(result['findings'])} · Files reviewed: {len(result['reviewed_files'])} · "
+        f"Ignored by policy: {len(result['ignored_files'])} · Skipped: {len(result['skipped_files'])}\n\n"
+        f"Minimum severity: {result['config']['min_severity']}. "
+        f"Categories: {', '.join(result['config']['categories'])}.\n\n"
+        "This review does not constitute approval or a security audit."
+    )

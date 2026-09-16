@@ -10,10 +10,14 @@ from app.github import GitHub, GitHubError
 @pytest.mark.anyio
 async def test_transient_get_retries_but_comment_post_does_not():
     calls = []
+
     def handler(request):
         calls.append(request.method)
         return httpx.Response(503, json={})
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://api.github.com") as client:
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://api.github.com"
+    ) as client:
         github = GitHub("test", client)
         with patch("app.github.asyncio.sleep", new=AsyncMock()):
             with pytest.raises(GitHubError):
@@ -32,6 +36,7 @@ async def test_publish_deduplicates_and_updates_only_bot_summary(monkeypatch):
     summaries = [{"id": 2, "body": "<!-- ai-reviewer:summary -->", "user": {"login": "human"}}]
     labels = []
     writes = []
+
     def handler(request):
         path = request.url.path
         body = json.loads(request.content) if request.content else None
@@ -52,7 +57,10 @@ async def test_publish_deduplicates_and_updates_only_bot_summary(monkeypatch):
                 labels.append(body)
             return httpx.Response(200, json=labels)
         return httpx.Response(200, json={})
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://api.github.com") as client:
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://api.github.com"
+    ) as client:
         github = GitHub("test", client)
         finding = dict(file="a.py", line=1, severity="high", category="bug", comment="Fix")
         for _ in range(2):

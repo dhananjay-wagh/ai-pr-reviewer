@@ -1,12 +1,13 @@
 """python -m evaluation.run [--live] [--output reports/evaluation.json]."""
+
 import argparse
 import asyncio
-import json
 import hashlib
-from pathlib import Path
+import json
 import statistics
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.model import ModelError, generate
 from app.reviews import validate_locations
@@ -17,28 +18,42 @@ def score_case(expected, findings):
     remaining = list(expected)
     matched = 0
     for finding in findings:
-        match = next((item for item in remaining if item["file"] == finding["file"]
-                      and finding["line"] in item["lines"] and item["category"] == finding["category"]), None)
+        match = next(
+            (
+                item
+                for item in remaining
+                if item["file"] == finding["file"]
+                and finding["line"] in item["lines"]
+                and item["category"] == finding["category"]
+            ),
+            None,
+        )
         if match:
             remaining.remove(match)
             matched += 1
-    return {"tp": matched, "fp": len(findings)-matched, "fn": len(remaining)}
+    return {"tp": matched, "fp": len(findings) - matched, "fn": len(remaining)}
 
 
 def aggregate(rows, mode):
     tp = sum(r["score"]["tp"] for r in rows)
     fp = sum(r["score"]["fp"] for r in rows)
     fn = sum(r["score"]["fn"] for r in rows)
-    return {"mode": mode, "created_at": datetime.now(timezone.utc).isoformat(), "cases": len(rows),
-            "location_category_precision": tp/(tp+fp) if tp+fp else None,
-            "location_category_recall": tp/(tp+fn) if tp+fn else None,
-            "failed_cases": sum(r["error"] is not None for r in rows),
-            "invalid_location_findings": sum(r["invalid_locations"] for r in rows),
-            "total_findings": sum(len(r["findings"]) for r in rows),
-            "median_latency_seconds": statistics.median(r["duration_seconds"] for r in rows) if rows else None,
-            "prompt_tokens": sum(r["prompt_tokens"] for r in rows),
-            "completion_tokens": sum(r["completion_tokens"] for r in rows),
-            "results": rows}
+    return {
+        "mode": mode,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "cases": len(rows),
+        "location_category_precision": tp / (tp + fp) if tp + fp else None,
+        "location_category_recall": tp / (tp + fn) if tp + fn else None,
+        "failed_cases": sum(r["error"] is not None for r in rows),
+        "invalid_location_findings": sum(r["invalid_locations"] for r in rows),
+        "total_findings": sum(len(r["findings"]) for r in rows),
+        "median_latency_seconds": statistics.median(r["duration_seconds"] for r in rows)
+        if rows
+        else None,
+        "prompt_tokens": sum(r["prompt_tokens"] for r in rows),
+        "completion_tokens": sum(r["completion_tokens"] for r in rows),
+        "results": rows,
+    }
 
 
 async def evaluate(live=False, limit=None):
@@ -57,7 +72,11 @@ async def evaluate(live=False, limit=None):
                         if not exc.retryable or attempt == 2:
                             raise
                         await asyncio.sleep(exc.retry_after)
-                findings, prompt, completion = response.findings, response.prompt_tokens, response.completion_tokens
+                findings, prompt, completion = (
+                    response.findings,
+                    response.prompt_tokens,
+                    response.completion_tokens,
+                )
                 model, prompt_version = response.model, response.prompt_version
                 for finding in findings:
                     try:
@@ -66,16 +85,25 @@ async def evaluate(live=False, limit=None):
                         invalid += 1
         except Exception as exc:
             error = exc.reason if isinstance(exc, ModelError) else type(exc).__name__
-        row = {**case, "findings": findings, "score": score_case(case["expected"], findings),
-               "error": error, "invalid_locations": invalid,
-               "prompt_tokens": prompt, "completion_tokens": completion,
-               "model": model, "prompt_version": prompt_version,
-               "duration_seconds": round(time.monotonic()-started, 3)}
+        row = {
+            **case,
+            "findings": findings,
+            "score": score_case(case["expected"], findings),
+            "error": error,
+            "invalid_locations": invalid,
+            "prompt_tokens": prompt,
+            "completion_tokens": completion,
+            "model": model,
+            "prompt_version": prompt_version,
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
         rows.append(row)
         if live:
             print(f"{case['id']}: {error or 'completed'}", flush=True)
     report = aggregate(rows, "live" if live else "dry-run-empty-baseline")
-    report["dataset_sha256"] = hashlib.sha256(json.dumps(list(cases()), sort_keys=True).encode()).hexdigest()
+    report["dataset_sha256"] = hashlib.sha256(
+        json.dumps(list(cases()), sort_keys=True).encode()
+    ).hexdigest()
     return report
 
 

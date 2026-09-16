@@ -37,6 +37,7 @@ def test_demo_seed_is_idempotent(tmp_path):
 
 def test_demo_seed_refuses_existing_real_jobs(tmp_path):
     from app.store import Store
+
     path = str(tmp_path / "jobs.db")
     db = Store(path)
     job_id, _ = db.enqueue("real", "owner/repo", 1, "abc")

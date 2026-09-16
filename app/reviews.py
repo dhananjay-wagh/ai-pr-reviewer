@@ -1,4 +1,5 @@
 """Typed model output and unified-diff location validation."""
+
 import json
 import re
 from typing import Literal

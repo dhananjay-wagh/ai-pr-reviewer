@@ -1,10 +1,11 @@
 """SQLite durable queue; API and workers share a local disk volume."""
+
 import json
-from contextlib import contextmanager
-from pathlib import Path
 import sqlite3
 import time
 import uuid
+from contextlib import contextmanager
+from pathlib import Path
 
 
 class Store:
@@ -43,11 +44,15 @@ class Store:
             seen = db.execute("SELECT job_id FROM deliveries WHERE id=?", (delivery,)).fetchone()
             if seen:
                 return seen[0], False
-            existing = db.execute("SELECT id FROM jobs WHERE repo=? AND number=? AND sha=?", (repo, number, sha)).fetchone()
+            existing = db.execute(
+                "SELECT id FROM jobs WHERE repo=? AND number=? AND sha=?", (repo, number, sha)
+            ).fetchone()
             job_id = existing[0] if existing else uuid.uuid4().hex
             if not existing:
-                db.execute("INSERT INTO jobs (id,repo,number,sha,installation,status,available,created,updated) VALUES (?,?,?,?,?,'queued',?,?,?)",
-                           (job_id, repo, number, sha, installation, now, now, now))
+                db.execute(
+                    "INSERT INTO jobs (id,repo,number,sha,installation,status,available,created,updated) VALUES (?,?,?,?,?,'queued',?,?,?)",
+                    (job_id, repo, number, sha, installation, now, now, now),
+                )
             db.execute("INSERT INTO deliveries VALUES (?,?)", (delivery, job_id))
             return job_id, not bool(existing)
 
@@ -55,33 +60,55 @@ class Store:
         now = time.time()
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute("UPDATE jobs SET status='failed',error='worker lease expired',updated=? WHERE status='running' AND lease_until<? AND attempts>=3", (now, now))
-            row = db.execute("""SELECT * FROM jobs j WHERE
+            db.execute(
+                "UPDATE jobs SET status='failed',error='worker lease expired',updated=? WHERE status='running' AND lease_until<? AND attempts>=3",
+                (now, now),
+            )
+            row = db.execute(
+                """SELECT * FROM jobs j WHERE
                 ((status='queued' AND available<=?) OR (status='running' AND lease_until<?))
                 AND attempts<3 AND NOT EXISTS (
                   SELECT 1 FROM jobs other WHERE other.repo=j.repo AND other.number=j.number
                   AND other.id!=j.id AND other.status='running' AND other.lease_until>=?)
-                ORDER BY created LIMIT 1""", (now, now, now)).fetchone()
+                ORDER BY created LIMIT 1""",
+                (now, now, now),
+            ).fetchone()
             if not row:
                 return None
             owner = uuid.uuid4().hex
-            db.execute("UPDATE jobs SET status='running', attempts=attempts+1, owner=?,lease_until=?,updated=? WHERE id=?",
-                       (owner, now + lease_seconds, now, row["id"]))
+            db.execute(
+                "UPDATE jobs SET status='running', attempts=attempts+1, owner=?,lease_until=?,updated=? WHERE id=?",
+                (owner, now + lease_seconds, now, row["id"]),
+            )
             return dict(db.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone())
 
     def heartbeat(self, job):
         with self.connect() as db:
-            return db.execute("UPDATE jobs SET lease_until=? WHERE id=? AND owner=? AND status='running'",
-                              (time.time()+120, job["id"], job["owner"])).rowcount == 1
+            return (
+                db.execute(
+                    "UPDATE jobs SET lease_until=? WHERE id=? AND owner=? AND status='running'",
+                    (time.time() + 120, job["id"], job["owner"]),
+                ).rowcount
+                == 1
+            )
 
     def finish(self, job, status, result=None, error=None, retry=False, retry_delay=0):
         now = time.time()
         if retry and job["attempts"] < 3:
             status = "queued"
         with self.connect() as db:
-            db.execute("UPDATE jobs SET status=?, result=?, error=?, updated=?, available=?, lease_until=0 WHERE id=? AND owner=? AND status='running'",
-                       (status, json.dumps(result) if result is not None else None, error, now,
-                        now + max(retry_delay, 2 ** job["attempts"]), job["id"], job["owner"]))
+            db.execute(
+                "UPDATE jobs SET status=?, result=?, error=?, updated=?, available=?, lease_until=0 WHERE id=? AND owner=? AND status='running'",
+                (
+                    status,
+                    json.dumps(result) if result is not None else None,
+                    error,
+                    now,
+                    now + max(retry_delay, 2 ** job["attempts"]),
+                    job["id"],
+                    job["owner"],
+                ),
+            )
 
     def get(self, job_id):
         with self.connect() as db:
@@ -90,22 +117,33 @@ class Store:
 
     def recent(self, limit=50, before=None):
         with self.connect() as db:
-            rows = db.execute("SELECT * FROM jobs WHERE (? IS NULL OR created<?) ORDER BY created DESC,id DESC LIMIT ?",
-                              (before, before, limit)).fetchall()
+            rows = db.execute(
+                "SELECT * FROM jobs WHERE (? IS NULL OR created<?) ORDER BY created DESC,id DESC LIMIT ?",
+                (before, before, limit),
+            ).fetchall()
             return [self.public(row) for row in rows]
 
     def metrics(self):
         with self.connect() as db:
-            counts = {row["status"]: row["n"] for row in db.execute("SELECT status,COUNT(*) AS n FROM jobs GROUP BY status")}
-            rows = db.execute("SELECT result FROM jobs WHERE status='completed' AND result IS NOT NULL ORDER BY updated DESC LIMIT 100").fetchall()
+            counts = {
+                row["status"]: row["n"]
+                for row in db.execute("SELECT status,COUNT(*) AS n FROM jobs GROUP BY status")
+            }
+            rows = db.execute(
+                "SELECT result FROM jobs WHERE status='completed' AND result IS NOT NULL ORDER BY updated DESC LIMIT 100"
+            ).fetchall()
         results = [json.loads(row["result"]) for row in rows]
         import statistics
+
         durations = [r["duration_seconds"] for r in results if "duration_seconds" in r]
-        return {"jobs_by_status": counts, "sample_size": len(results),
-                "median_review_seconds": statistics.median(durations) if durations else None,
-                "prompt_tokens": sum(r.get("prompt_tokens", 0) for r in results),
-                "completion_tokens": sum(r.get("completion_tokens", 0) for r in results),
-                "partial_reviews": sum(not r.get("complete", True) for r in results)}
+        return {
+            "jobs_by_status": counts,
+            "sample_size": len(results),
+            "median_review_seconds": statistics.median(durations) if durations else None,
+            "prompt_tokens": sum(r.get("prompt_tokens", 0) for r in results),
+            "completion_tokens": sum(r.get("completion_tokens", 0) for r in results),
+            "partial_reviews": sum(not r.get("complete", True) for r in results),
+        }
 
     @staticmethod
     def public(row):

@@ -10,3 +10,8 @@ data/
 *.pem
 *.key
 reports/
+.coverage
+coverage.xml
+htmlcov/
+.ruff_cache/
+secrets/

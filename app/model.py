@@ -1,7 +1,8 @@
 """Bounded model generation, strict output validation, and usage accounting."""
-from dataclasses import dataclass
+
 import os
 import time
+from dataclasses import dataclass
 
 import groq
 from dotenv import load_dotenv
@@ -50,9 +51,14 @@ async def generate(diff: str) -> ModelResult:
     async with groq.AsyncGroq(api_key=key, timeout=45, max_retries=0) as client:
         try:
             response = await client.chat.completions.create(
-                model=model, temperature=0, max_completion_tokens=4000,
-                messages=[{"role": "system", "content": SYSTEM_PROMPT},
-                          {"role": "user", "content": diff}])
+                model=model,
+                temperature=0,
+                max_completion_tokens=4000,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": diff},
+                ],
+            )
         except groq.RateLimitError as exc:
             try:
                 delay = min(60, max(2, float(exc.response.headers.get("retry-after", "30"))))
@@ -62,11 +68,17 @@ async def generate(diff: str) -> ModelResult:
         except (groq.APIConnectionError, groq.APITimeoutError):
             raise ModelError(retryable=True, reason="connection_error") from None
         except groq.APIStatusError as exc:
-            raise ModelError(retryable=exc.status_code >= 500, reason=f"provider_status_{exc.status_code}") from None
+            raise ModelError(
+                retryable=exc.status_code >= 500, reason=f"provider_status_{exc.status_code}"
+            ) from None
     if not response.choices or response.choices[0].finish_reason != "stop":
         raise ModelError(reason="incomplete_output")
     findings = parse_findings(response.choices[0].message.content or "")
     usage = response.usage
-    return ModelResult(findings, usage.prompt_tokens if usage else 0,
-                       usage.completion_tokens if usage else 0,
-                       round(time.monotonic()-started, 3), model)
+    return ModelResult(
+        findings,
+        usage.prompt_tokens if usage else 0,
+        usage.completion_tokens if usage else 0,
+        round(time.monotonic() - started, 3),
+        model,
+    )

@@ -1,7 +1,8 @@
 """Short-lived GitHub App installation tokens, or explicit local PAT mode."""
+
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 
 import jwt
 
@@ -19,8 +20,10 @@ async def github_for_job(job) -> GitHub:
         raise ValueError("GitHub App webhook requires an installation ID")
     key = Path(os.environ["GITHUB_APP_PRIVATE_KEY_PATH"]).read_bytes()
     now = int(time.time())
-    signed = jwt.encode({"iat": now-60, "exp": now+540, "iss": app_id}, key, algorithm="RS256")
+    signed = jwt.encode({"iat": now - 60, "exp": now + 540, "iss": app_id}, key, algorithm="RS256")
     app = GitHub(signed)
     metadata = await app.request("GET", "/app")
-    token = await app.request("POST", f"/app/installations/{job['installation']}/access_tokens", json={})
+    token = await app.request(
+        "POST", f"/app/installations/{job['installation']}/access_tokens", json={}
+    )
     return GitHub(token["token"], bot_login=f"{metadata['slug']}[bot]")
