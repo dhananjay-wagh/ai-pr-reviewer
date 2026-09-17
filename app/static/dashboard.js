@@ -2,14 +2,15 @@
 const byId = id => document.getElementById(id);
 let token = '';
 let jobs = [];
-async function api(path) {
-  const response = await fetch(path, {headers: {Authorization: `Bearer ${token}`}, cache: 'no-store'});
+let selectedJob = null;
+async function api(path, method = 'GET') {
+  const response = await fetch(path, {method, headers: {Authorization: `Bearer ${token}`}, cache: 'no-store'});
   if (response.status === 401) { disconnect(); throw new Error('Access token was not accepted.'); }
   if (!response.ok) throw new Error('Could not load review data. Try refreshing.');
   return response.json();
 }
 function disconnect() {
-  token = ''; jobs = [];
+  token = ''; jobs = []; selectedJob = null;
   byId('workspace').hidden = true; byId('login').hidden = false;
   byId('token').value = ''; byId('jobs').replaceChildren(); byId('findings').replaceChildren();
   for (const id of ['detail-title', 'detail-scope', 'detail-meta', 'completed', 'active', 'latency', 'tokens', 'count'])
@@ -22,6 +23,8 @@ function text(tag, value, className) {
   return element;
 }
 function showDetail(job) {
+  selectedJob = job;
+  byId('retry-job').hidden = job.status !== 'failed';
   const result = job.result || {};
   byId('detail').hidden = false;
   byId('detail-title').textContent = `${job.repo} #${job.number}${result.demo ? ' · DEMO DATA' : ''}`;
@@ -74,3 +77,13 @@ byId('login-form').addEventListener('submit', event => {event.preventDefault(); 
 byId('refresh').addEventListener('click', refresh);
 byId('logout').addEventListener('click', () => {disconnect(); byId('message').textContent = 'Disconnected.';});
 byId('close-detail').addEventListener('click', () => {byId('detail').hidden = true;});
+byId('retry-job').addEventListener('click', async () => {
+  if (!selectedJob || selectedJob.status !== 'failed') return;
+  byId('retry-job').disabled = true;
+  try {
+    await api(`/api/jobs/${encodeURIComponent(selectedJob.id)}/retry`, 'POST');
+    byId('detail').hidden = true;
+    await refresh();
+  } catch (error) { byId('message').textContent = error.message; }
+  finally { byId('retry-job').disabled = false; }
+});

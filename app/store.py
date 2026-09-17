@@ -25,6 +25,8 @@ class Store:
                 CREATE TABLE IF NOT EXISTS deliveries (
                   id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id));
                 CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(status, available);
+                CREATE TABLE IF NOT EXISTS retry_audit (
+                  job_id TEXT NOT NULL, requested_at REAL NOT NULL);
             """)
 
     @contextmanager
@@ -92,13 +94,35 @@ class Store:
                 == 1
             )
 
+    def checkpoint(self, job, result):
+        """Persist validated analysis before any GitHub writes."""
+        with self.connect() as db:
+            changed = db.execute(
+                "UPDATE jobs SET result=?,updated=? WHERE id=? AND owner=? AND status='running'",
+                (json.dumps(result), time.time(), job["id"], job["owner"]),
+            ).rowcount
+        if not changed:
+            raise RuntimeError("Lost job lease before publication")
+
+    def retry_failed(self, job_id):
+        now = time.time()
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            changed = db.execute(
+                "UPDATE jobs SET status='queued',attempts=0,error=NULL,available=?,updated=?,owner=NULL,lease_until=0 WHERE id=? AND status='failed'",
+                (now, now, job_id),
+            ).rowcount
+            if changed:
+                db.execute("INSERT INTO retry_audit VALUES (?,?)", (job_id, now))
+            return bool(changed)
+
     def finish(self, job, status, result=None, error=None, retry=False, retry_delay=0):
         now = time.time()
         if retry and job["attempts"] < 3:
             status = "queued"
         with self.connect() as db:
             db.execute(
-                "UPDATE jobs SET status=?, result=?, error=?, updated=?, available=?, lease_until=0 WHERE id=? AND owner=? AND status='running'",
+                "UPDATE jobs SET status=?, result=COALESCE(?,result), error=?, updated=?, available=?, lease_until=0 WHERE id=? AND owner=? AND status='running'",
                 (
                     status,
                     json.dumps(result) if result is not None else None,

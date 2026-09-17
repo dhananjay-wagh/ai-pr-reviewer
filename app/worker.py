@@ -1,6 +1,7 @@
 """Run separately: python -m app.worker."""
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -17,11 +18,16 @@ from app.store import Store
 log = logging.getLogger("reviewer.worker")
 
 
-async def review_job(job):
+async def review_job(job, db):
     github = await github_for_job(job)
-    result = await analyze(github, job["repo"], job["number"], job["sha"])
+    result = (
+        json.loads(job["result"])
+        if job.get("result")
+        else await analyze(github, job["repo"], job["number"], job["sha"])
+    )
     if result is None:
         return "superseded", {}
+    db.checkpoint(job, result)
     published = await github.publish(
         job["repo"],
         job["number"],
@@ -45,7 +51,7 @@ async def run_once(db: Store):
             if not db.heartbeat(job):
                 raise RuntimeError("Lost job lease")
 
-    task = asyncio.create_task(review_job(job))
+    task = asyncio.create_task(review_job(job, db))
     heartbeat = asyncio.create_task(renew())
     try:
         done, _ = await asyncio.wait(

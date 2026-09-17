@@ -95,6 +95,16 @@ async def job_status(job_id: str):
     return job
 
 
+@app.post("/api/jobs/{job_id}/retry", dependencies=[Depends(authorize)], status_code=202)
+async def retry_job(job_id: str):
+    db = store()
+    if not db.get(job_id):
+        raise HTTPException(404, "Job not found")
+    if not db.retry_failed(job_id):
+        raise HTTPException(409, "Only failed jobs can be retried")
+    return {"status": "queued", "job_id": job_id}
+
+
 @app.post("/webhook", status_code=202)
 async def webhook(request: Request):
     payload = bytearray()
