@@ -19,7 +19,7 @@ $env:DASHBOARD_TOKEN=python -c "import secrets; print(secrets.token_urlsafe(32))
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Copy your generated token from the terminal variable into the login form. Use a
+Read the generated token with `$env:DASHBOARD_TOKEN` and copy it into the login form. Use a
 separate demo database: the seed command refuses to modify existing real jobs.
 All sample rows and findings are labeled DEMO. Screenshots under `assets/`
 depict synthetic data, not actual GitHub reviews.
