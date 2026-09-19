@@ -90,7 +90,7 @@ modify their own effective review policy. See [policy semantics](docs/REVIEW_POL
 ```sh
 python -m ruff check app tests evaluation scripts
 python -m ruff format --check app tests evaluation scripts
-python -m pytest --cov=app --cov-report=term-missing
+python -m pytest tests --cov=app --cov-report=term-missing
 python -m evaluation.run --output reports/dry-run.json
 ```
 

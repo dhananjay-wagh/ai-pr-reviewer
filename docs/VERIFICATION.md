@@ -19,7 +19,7 @@ documented separately in BUILD_HISTORY.md.
 | Live GitHub personal-token authentication | HTTP 401; configured token not accepted |
 | Live GitHub App installation | Not provisioned/verified |
 | Docker image build | Not run locally; Docker is unavailable |
-| Hosted GitHub Actions run | Not run; commits remain local |
+| Hosted GitHub Actions run | Test and container jobs passed on the published feature branch |
 | Public deployment | Not provisioned |
 
 The test client emits one Starlette/httpx deprecation warning; it did not affect
@@ -33,7 +33,21 @@ token, or configure/install the GitHub App following GITHUB_APP.md. Do not paste
 credentials into chat or commit them. Confirm required repository permissions,
 then run the live acceptance walkthrough in DEMO.md on your selected repository.
 
-Build/run the Docker image on a Docker-enabled host or push the branch to run
-its container CI job. A public deployment requires your chosen HTTPS host and
-shared persistent storage for the API/worker. Until those checks succeed,
-describe this as implemented and locally verified, not a verified deployment.
+The container build is now verified by hosted CI. A public deployment still
+requires your chosen HTTPS host and shared persistent storage for the API/worker.
+Until live acceptance checks succeed, describe this as implemented and tested,
+not a verified deployment.
+
+## Pull request integration check
+
+The published feature branch's [Verify workflow](https://github.com/dhananjay-wagh/ai-pr-reviewer/actions/runs/44163493152)
+passed its test and container jobs, including an actual Docker image build and
+API health smoke test. The PR's red merge status was caused by conflicts in
+`README.md` and `app/utils.py`, rather than failed checks.
+
+The integration keeps the expanded README with main's explicit `tests` directory.
+Webhook signature helpers remain in `app/utils.py`; model configuration is now in
+`app/model.py` and the `GROQ_MODEL` environment variable. Main's older hard-coded
+`qwen/qwen3.6-27b` model was absent from the configured Groq account's model list
+when checked on November 18, 2026. The available, previously benchmarked
+`openai/gpt-oss-120b` remains the configurable default. No credentials were changed.
