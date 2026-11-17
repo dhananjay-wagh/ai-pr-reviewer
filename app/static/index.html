@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Review desk · AI Code Reviewer</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/dashboard.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header><a class="brand" href="/dashboard"><span class="mark">CR</span> Code Reviewer <span class="tag">REVIEW DESK</span></a><span class="service"><i></i> GitHub review pipeline</span></header>
+    <main>
+      <div class="intro"><div><p class="eyebrow">ENGINEERING / REVIEW OPERATIONS</p><h1>Every change.<br><span>A clearer picture.</span></h1><p class="description">Follow your pull requests from delivery to review.<br>Inspect findings, coverage, and the work behind each result.</p></div><div class="pipeline" aria-label="Review pipeline"><span>01 · Receive</span><b>↓</b><span>02 · Analyze</span><b>↓</b><span>03 · Review</span></div></div>
+      <section id="login" class="panel login"><div><h2>Open your review desk</h2><p>Use your dashboard access token to view repository activity.</p></div><form id="login-form"><label for="token">Dashboard token</label><div class="input-row"><input id="token" type="password" autocomplete="off" required placeholder="Enter access token"><button type="submit">Connect <span>↗</span></button></div></form></section>
+      <p id="message" role="status" aria-live="polite"></p>
+      <div id="workspace" hidden>
+        <div class="section-head"><h2>Pipeline overview</h2><div><button id="refresh" class="secondary">Refresh</button><button id="logout" class="secondary">Disconnect</button></div></div>
+        <section class="metrics" aria-label="Review metrics"><article><p>COMPLETED</p><strong id="completed">—</strong><small>All completed jobs</small></article><article><p>IN FLIGHT</p><strong id="active">—</strong><small>Queued + running</small></article><article><p>MEDIAN REVIEW</p><strong id="latency">—</strong><small>Latest 100 completions</small></article><article><p>TOKENS USED</p><strong id="tokens">—</strong><small>Latest 100 completions</small></article></section>
+        <div class="section-head"><h2>Recent reviews <span id="count" class="count"></span></h2><span class="muted">Latest 50 jobs · Select a row for details</span></div>
+        <section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>REPOSITORY / PULL REQUEST</th><th>COMMIT</th><th>STATUS</th><th>FINDINGS</th><th>RECEIVED</th></tr></thead><tbody id="jobs"></tbody></table></div><p id="empty" class="empty" hidden>No reviews yet. Open a pull request in an enabled repository to start.</p></section>
+        <section id="detail" class="panel detail" hidden aria-label="Selected review"><div class="section-head"><h2 id="detail-title"></h2><div><button id="retry-job" class="secondary" hidden>Retry failed review</button><button id="close-detail" class="secondary">Close</button></div></div><p id="detail-scope"></p><pre id="detail-meta"></pre><div id="findings"></div></section>
+      </div>
+    </main>
+    <footer><span>CODE REVIEWER <b> / </b> Built for considered changes.</span><span>AI findings require human verification.</span></footer>
+  </div>
+</body>
+</html>

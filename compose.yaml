@@ -1,0 +1,39 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/reviewer.db
+      GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app.pem
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - reviewer-data:/data
+      - ./secrets:/run/secrets:ro
+    read_only: true
+    tmpfs: /tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker"]
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/reviewer.db
+      GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app.pem
+    volumes:
+      - reviewer-data:/data
+      - ./secrets:/run/secrets:ro
+    read_only: true
+    tmpfs: /tmp
+    restart: unless-stopped
+    stop_grace_period: 11m
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  reviewer-data:
